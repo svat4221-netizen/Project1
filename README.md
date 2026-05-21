@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>JS Мой Майнкрафт</title>
+    <title>JS Мой Майнкрафт с Текстурами</title>
     <style>
-        /* Полный сброс отступов, чтобы игра занимала 100% экрана */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -19,7 +18,7 @@
             height: 100%;
             overflow: hidden;
             background-color: #7ec0ee;
-            position: fixed; /* Предотвращает случайные сдвиги экрана на телефоне */
+            position: fixed;
         }
 
         canvas {
@@ -29,10 +28,9 @@
             position: absolute;
             top: 0;
             left: 0;
-            z-index: 1; /* Игра строго на заднем фоне */
+            z-index: 1;
         }
         
-        /* Интерфейс (UI) поверх игры */
         #ui {
             position: absolute;
             top: 15px;
@@ -44,6 +42,7 @@
             pointer-events: none;
             z-index: 10;
             font-size: 14px;
+            font-family: monospace;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
         
@@ -70,7 +69,7 @@
             padding: 6px;
             border-radius: 8px;
             z-index: 10;
-            max-width: 90%;
+            max-width: 95%;
             overflow-x: auto;
         }
 
@@ -84,6 +83,7 @@
             justify-content: center;
             color: white;
             font-size: 10px;
+            font-family: sans-serif;
             text-align: center;
             background: #222;
             cursor: pointer;
@@ -97,7 +97,6 @@
             box-shadow: 0 0 10px #fff;
         }
         
-        /* Кнопки управления (Джойстик слева) */
         #controls {
             position: absolute;
             bottom: 20px;
@@ -123,7 +122,6 @@
             backdrop-filter: blur(2px);
         }
 
-        /* Действия справа */
         #action-btns {
             position: absolute;
             bottom: 20px;
@@ -183,25 +181,96 @@
     </div>
 
     <script>
+        // --- ГЕНЕРАТОР ПИКСЕЛЬНЫХ ТЕКСТУР НА НАЧЕХУ ---
+        function generatePixelTexture(type) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 16;  // Стандартное разрешение Майнкрафта 16х16 пикселей
+            canvas.height = 16;
+            const ctx = canvas.getContext('2d');
+
+            // Генерация шума для пикселей
+            for (let x = 0; x < 16; x++) {
+                for (let y = 0; y < 16; y++) {
+                    let r, g, b;
+                    let noise = Math.random() * 20 - 10; // Рандомный оттенок для пикселя
+
+                    if (type === 'dirt') { // Земля
+                        r = 85 + noise; g = 51 + noise; b = 17 + noise;
+                        // Сверху добавим немного зеленой травы на верхнюю грань куба
+                        if (y < 3 && Math.random() > 0.3) { r = 40 + noise; g = 115 + noise; b = 35 + noise; }
+                    } 
+                    else if (type === 'sand') { // Песок
+                        r = 215 + noise; g = 195 + noise; b = 135 + noise;
+                        if (Math.random() > 0.8) { r -= 20; g -= 20; } // Эффект песчинок
+                    } 
+                    else if (type === 'gravel') { // Гравий
+                        r = 110 + noise; g = 110 + noise; b = 115 + noise;
+                        if (Math.random() > 0.7) { r -= 30; g -= 30; b -= 30; } // Камушки
+                    } 
+                    else if (type === 'stone') { // Камень
+                        r = 125 + noise; g = 125 + noise; b = 125 + noise;
+                    } 
+                    else if (type === 'furnace') { // Печка
+                        r = 60 + noise; g = 60 + noise; b = 65 + noise;
+                        // Рисуем рамку печки
+                        if (x === 0 || x === 15 || y === 0 || y === 15) { r = 40; g = 40; b = 40; }
+                        // Имитация решетки по центру
+                        if (y >= 6 && y <= 10 && x >= 4 && x <= 12) { r = 25; g = 25; b = 25; }
+                    }
+
+                    ctx.fillStyle = `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)})`;
+                    ctx.fillRect(x, y, 1, 1);
+                }
+            }
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.magFilter = THREE.NearestFilter; // Важно! Убирает размытие, делая текстуру пиксельной
+            texture.minFilter = THREE.NearestFilter;
+            return texture;
+        }
+
         // --- ИНИЦИАЛИЗАЦИЯ СЦЕНЫ ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x7ec0ee);
         scene.fog = new THREE.FogExp2(0x7ec0ee, 0.06);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Оптимизация под Retina/AMOLED экраны
+        const renderer = new THREE.WebGLRenderer({ antialias: false }); // Отключаем сглаживание для олдскульного вида
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Свет
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        // Освещение (направленное, чтобы блоки имели объемные тени)
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-        directionalLight.position.set(20, 40, 20);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.4);
+        directionalLight.position.set(15, 30, 15);
         scene.add(directionalLight);
 
-        // Игрок и физика
+        // Создаем текстуры
+        const textures = {
+            dirt: generatePixelTexture('dirt'),
+            sand: generatePixelTexture('sand'),
+            gravel: generatePixelTexture('gravel'),
+            stone: generatePixelTexture('stone'),
+            furnace: generatePixelTexture('furnace')
+        };
+
+        // Настройки предметов
+        const BLOCK_TYPES = {
+            1: { name: 'Земля', texture: textures.dirt, isBlock: true },
+            2: { name: 'Песок', texture: textures.sand, isBlock: true },
+            3: { name: 'Гравий', texture: textures.gravel, isBlock: true },
+            4: { name: 'Камень', texture: textures.stone, isBlock: true },
+            5: { name: 'Кирка', isBlock: false },
+            6: { name: 'Меч', isBlock: false },
+            7: { name: 'Печь', texture: textures.furnace, isBlock: true }
+        };
+        
+        let activeSlot = 1;
+        const worldBlocks = [];
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
         let velocity = new THREE.Vector3();
         let direction = new THREE.Vector3();
@@ -211,24 +280,9 @@
         camera.position.set(5, 3, 5);
         let pitch = 0, yaw = 0;
 
-        // Блоки
-        const BLOCK_TYPES = {
-            1: { name: 'Земля', color: 0x553311, isBlock: true },
-            2: { name: 'Песок', color: 0xddcc99, isBlock: true },
-            3: { name: 'Гравий', color: 0x777777, isBlock: true },
-            4: { name: 'Камень', color: 0x888888, isBlock: true },
-            5: { name: 'Кирка', isBlock: false },
-            6: { name: 'Меч', isBlock: false },
-            7: { name: 'Печь', color: 0x333333, isBlock: true }
-        };
-        let activeSlot = 1;
-        const worldBlocks = [];
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-
-        // Генерация мира (оптимизированная под телефоны)
-        const worldSize = 10;
+        // Создание блока в мире
         function createBlock(x, y, z, typeId) {
-            const material = new THREE.MeshLambertMaterial({ color: BLOCK_TYPES[typeId].color });
+            const material = new THREE.MeshLambertMaterial({ map: BLOCK_TYPES[typeId].texture });
             const mesh = new THREE.Mesh(geometry, material);
             mesh.position.set(x, y, z);
             mesh.blockTypeId = typeId;
@@ -236,19 +290,21 @@
             worldBlocks.push(mesh);
         }
 
+        // Рендерим мир
+        const worldSize = 10;
         for(let x = 0; x < worldSize; x++) {
             for(let z = 0; z < worldSize; z++) {
-                createBlock(x, 0, z, 4); // Нижний слой камня
+                createBlock(x, 0, z, 4); // Камень вниз
                 let rand = Math.random();
-                let topType = 1;
-                if (rand < 0.15) topType = 2;
-                else if (rand < 0.3) topType = 3;
-                createBlock(x, 1, z, topType); // Верхний слой ландшафта
+                let topType = 1; // Земля по дефолту
+                if (rand < 0.15) topType = 2; // Песок
+                else if (rand < 0.3) topType = 3; // Гравий
+                createBlock(x, 1, z, topType);
             }
         }
         createBlock(4, 2, 4, 7); // Стартовая печка
 
-        // Взаимодействие (Ломать / Ставить)
+        // Ломание и установка блоков
         const raycaster = new THREE.Raycaster();
         const mousePointer = new THREE.Vector2(0, 0);
 
@@ -274,11 +330,11 @@
                         createBlock(newPos.x, newPos.y, newPos.z, activeSlot);
                         
                         if(activeSlot == 7) {
-                            document.getElementById('stats').innerText = "Вы поставили печь! Нажмите на неё Киркой.";
+                            document.getElementById('stats').innerText = "Вы поставили печь! Кликните по ней Киркой.";
                         }
                     } else if (activeSlot == 5 && hitBlock.blockTypeId == 7) {
-                        document.getElementById('stats').innerText = "Переплавка гравия в камень...";
-                        setTimeout(() => { document.getElementById('stats').innerText = "Готово! Получен Камень."; }, 2000);
+                        document.getElementById('stats').innerText = "Печь топится: Переплавка гравия...";
+                        setTimeout(() => { document.getElementById('stats').innerText = "Успех! Получен чистый Камень."; }, 2000);
                     }
                 }
             }
@@ -293,7 +349,7 @@
             document.getElementById('info').innerText = "В руках: " + BLOCK_TYPES[slotId].name;
         }
 
-        // --- УПРАВЛЕНИЕ И СЕНСОРНЫЙ ВЗГЛЯД ---
+        // --- СЕНСОР И КАМЕРА ---
         let previousTouch;
 
         window.addEventListener('touchstart', (e) => {
@@ -317,7 +373,6 @@
 
         window.addEventListener('touchend', () => { previousTouch = null; });
 
-        // Настройка экранных кнопок
         const setupMobileBtn = (id, press, release) => {
             const btn = document.getElementById(id);
             if(!btn) return;
@@ -333,33 +388,16 @@
         setupMobileBtn('btn-break', () => handleAction('break'), () => {});
         setupMobileBtn('btn-place', () => handleAction('place'), () => {});
 
-        // Поддержка ПК клавиатуры на всякий случай
-        window.addEventListener('keydown', (e) => {
-            if(e.code === 'KeyW') moveForward = true;
-            if(e.code === 'KeyS') moveBackward = true;
-            if(e.code === 'KeyA') moveLeft = true;
-            if(e.code === 'KeyD') moveRight = true;
-            if(e.code === 'Space' && canJump) { velocity.y = 0.12; canJump = false; }
-        });
-        window.addEventListener('keyup', (e) => {
-            if(e.code === 'KeyW') moveForward = false;
-            if(e.code === 'KeyS') moveBackward = false;
-            if(e.code === 'KeyA') moveLeft = false;
-            if(e.code === 'KeyD') moveRight = false;
-        });
-
         // --- ИГРОВОЙ ЦИКЛ ---
         function animate() {
             requestAnimationFrame(animate);
 
-            // Вращение камеры
             const qx = new THREE.Quaternion();
             qx.setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitch);
             const qy = new THREE.Quaternion();
             qy.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
             camera.quaternion.copy(qy).multiply(qx);
 
-            // Физика гравитации
             velocity.y -= gravity;
             camera.position.y += velocity.y;
 
@@ -369,7 +407,6 @@
                 canJump = true;
             }
 
-            // Движение
             direction.z = Number(moveForward) - Number(moveBackward);
             direction.x = Number(moveRight) - Number(moveLeft);
             direction.normalize();
@@ -381,7 +418,6 @@
             renderer.render(scene, camera);
         }
 
-        // Адаптация под поворот экрана смартфона
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -392,10 +428,6 @@
     </script>
 </body>
 </html>
-
-
-
-
 
 
 
