@@ -2,236 +2,329 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Family Courier — Ultimate System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>JS Мой Майнкрафт</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .glovo-yellow { background-color: #FFC244; }
-        .glovo-green { background-color: #00A082; }
-        .hidden { display: none !important; }
-        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; user-select: none; }
+        canvas { display: block; }
+        
+        /* Интерфейс (UI) */
+        #ui {
+            position: absolute; top: 10px; left: 10px; color: white;
+            background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; pointer-events: none;
+        }
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; width: 10px; height: 10px;
+            background: white; transform: translate(-50%, -50%); pointer-events: none; opacity: 0.7;
+        }
+        #hotbar {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; background: rgba(0,0,0,0.6); padding: 5px; border-radius: 5px;
+        }
+        .slot {
+            width: 50px; height: 50px; border: 2px solid #555; margin: 0 3px;
+            display: flex; align-items: center; justify-content: center; color: white;
+            font-size: 11px; text-align: center; background: #222; cursor: pointer;
+        }
+        .slot.active { border-color: #fff; background: #444; }
+        
+        /* Кнопки управления для телефона */
+        #controls {
+            position: absolute; bottom: 20px; left: 20px; display: grid;
+            grid-template-columns: repeat(3, 40px); grid-gap: 5px;
+        }
+        .btn {
+            width: 40px; height: 40px; background: rgba(255,255,255,0.3);
+            border: 1px solid white; border-radius: 5px; display: flex;
+            align-items: center; justify-content: center; color: white; font-weight: bold;
+        }
+        #action-btns {
+            position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .action-btn {
+            width: 60px; height: 60px; background: rgba(0,0,0,0.5); border: 2px solid white;
+            border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px;
+        }
     </style>
+    <!-- Подключаем 3D движок Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body>
 
-    <div id="authScreen" class="modal">
-        <div class="bg-white w-full max-w-sm rounded-[40px] p-10 text-center shadow-2xl">
-            <h1 class="text-3xl font-black italic mb-2 tracking-tighter">FAMILY COURIER</h1>
-            <p class="text-gray-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-10">Авторизация</p>
-            <button onclick="login('courier')" class="w-full glovo-yellow py-5 rounded-2xl font-black uppercase mb-4 active:scale-95 transition-all">Вход: Курьер</button>
-            <button onclick="login('dispatcher')" class="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase active:scale-95 transition-all">Вход: Диспетчер</button>
-        </div>
+    <div id="ui">
+        <div id="info">Инструмент: Земля</div>
+        <div id="stats">Печь: готова к работе</div>
+    </div>
+    <div id="crosshair"></div>
+    
+    <div id="hotbar">
+        <div class="slot active" onclick="selectSlot(1)">Земля</div>
+        <div class="slot" onclick="selectSlot(2)">Песок</div>
+        <div class="slot" onclick="selectSlot(3)">Гравий</div>
+        <div class="slot" onclick="selectSlot(4)">Камень</div>
+        <div class="slot" onclick="selectSlot(5)">Кирка</div>
+        <div class="slot" onclick="selectSlot(6)">Меч</div>
+        <div class="slot" onclick="selectSlot(7)">Печь</div>
     </div>
 
-    <div id="app" class="hidden">
-        <header id="header" class="px-6 pt-10 pb-8 rounded-b-[40px] shadow-lg sticky top-0 z-10 transition-colors">
-            <div class="flex justify-between items-start">
-                <div>
-                    <h1 class="text-2xl font-black italic tracking-tighter leading-none" id="logoText">FAMILY COURIER</h1>
-                    <button onclick="logout()" class="mt-2 text-[10px] font-black uppercase underline opacity-60">Сменить профиль</button>
-                </div>
-                <div class="bg-white/20 backdrop-blur-md rounded-2xl p-3 text-right">
-                    <span class="block text-[10px] font-bold opacity-60 uppercase">Рейтинг</span>
-                    <span class="text-xl font-black text-white" id="ratingDisplay">★ 4.95</span>
-                </div>
-            </div>
-            <div class="mt-8 bg-white rounded-3xl p-6 shadow-md flex justify-between items-center text-gray-900">
-                <div>
-                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Ваш Баланс</p>
-                    <p class="text-4xl font-black"><span id="tokenCount">1250</span> <span class="text-lg font-medium text-green-600">₮</span></p>
-                </div>
-                <div id="roleIndicator" class="text-[9px] font-black bg-black text-white px-3 py-1 rounded-full uppercase italic"></div>
-            </div>
-        </header>
-
-        <main class="px-6 py-8 pb-24">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-black uppercase italic" id="mainTitle">Активные заказы</h2>
-                <button id="addBtn" onclick="toggleModal('createModal', true)" class="hidden glovo-green text-white w-12 h-12 rounded-full shadow-lg text-2xl font-bold flex items-center justify-center">+</button>
-            </div>
-            <div id="taskList" class="space-y-4"></div>
-        </main>
+    <!-- Сенсорное управление для мобилок -->
+    <div id="controls">
+        <div></div><div class="btn" id="btn-w">W</div><div></div>
+        <div class="btn" id="btn-a">A</div><div class="btn" id="btn-s">S</div><div class="btn" id="btn-d">D</div>
     </div>
 
-    <div id="createModal" class="modal hidden">
-        <div class="bg-white w-full max-w-md rounded-[32px] p-8">
-            <h2 class="text-2xl font-black mb-6 uppercase italic">Новое задание</h2>
-            <input id="taskName" type="text" class="w-full bg-gray-100 rounded-xl p-4 mb-4 font-bold outline-none" placeholder="Название заказа">
-            <input id="taskPrice" type="number" class="w-full bg-gray-100 rounded-xl p-4 mb-6 font-bold outline-none" placeholder="Награда ₮">
-            <div class="flex gap-4">
-                <button onclick="toggleModal('createModal', false)" class="flex-1 font-bold text-gray-400 uppercase text-xs">Отмена</button>
-                <button onclick="createTask()" class="flex-[2] glovo-green text-white py-4 rounded-2xl font-black shadow-lg uppercase text-xs">Опубликовать</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="chatModal" class="modal hidden">
-        <div class="bg-white w-full max-w-md h-[80vh] rounded-[32px] flex flex-col overflow-hidden shadow-2xl relative">
-            <div class="p-6 bg-gray-50 border-b flex justify-between items-center">
-                <h3 class="font-black italic uppercase text-sm" id="chatTitle">Чат</h3>
-                <button onclick="toggleModal('chatModal', false)" class="text-gray-400 font-bold">×</button>
-            </div>
-            <div id="chatMessages" class="flex-1 p-6 overflow-y-auto space-y-4 bg-gray-50"></div>
-            <div class="p-4 border-t flex gap-2 bg-white">
-                <input id="chatInput" type="text" class="flex-1 bg-gray-100 rounded-xl px-4 py-3 outline-none font-medium text-sm" placeholder="Введите сообщение...">
-                <button onclick="sendMessage()" class="glovo-green text-white px-6 rounded-xl font-bold text-xs uppercase italic">Отпр.</button>
-            </div>
-        </div>
+    <div id="action-btns">
+        <div class="action-btn" id="btn-break">ЛОМАТЬ</div>
+        <div class="action-btn" id="btn-place">СТАВИТЬ</div>
+        <div class="action-btn" id="btn-jump">ПРЫЖОК</div>
     </div>
 
     <script>
-        let currentUser = null;
-        let tokens = 1250;
-        let rating = 4.95;
-        let currentChatTaskId = null;
+        // --- НАСТРОЙКИ И ПЕРЕМЕННЫЕ ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x7ec0ee); // Цвет неба
+        scene.fog = new THREE.FogExp2(0x7ec0ee, 0.05);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Освещение
+        const ambientLight = new THREE.AmbientLight(0xcccccc, 0.6);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        directionalLight.position.set(10, 20, 15);
+        scene.add(directionalLight);
+
+        // Физика и игрок
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, canJump = false;
+        let velocity = new THREE.Vector3();
+        let direction = new THREE.Vector3();
+        const playerSpeed = 0.1;
+        const gravity = 0.01;
         
-        let tasks = [
-            { id: 1, title: "Генеральная уборка", price: 500, type: "Standard", chat: [] },
-            { id: 2, title: "Пятерка за экзамен", price: 3000, type: "Epic", chat: [] }
-        ];
+        camera.position.set(5, 5, 5);
+        let pitch = 0, yaw = 0; // Для вращения камеры пальцем/мышкой
 
-        function login(role) {
-            currentUser = role;
-            document.getElementById('authScreen').classList.add('hidden');
-            document.getElementById('app').classList.remove('hidden');
-            const header = document.getElementById('header');
-            const roleIndicator = document.getElementById('roleIndicator');
-            
-            if (role === 'courier') {
-                header.className = "glovo-yellow px-6 pt-10 pb-8 rounded-b-[40px] shadow-lg sticky top-0 z-10";
-                roleIndicator.innerText = "КУРЬЕР";
-                roleIndicator.className = "text-[9px] font-black bg-black text-white px-3 py-1 rounded-full uppercase italic";
-                document.getElementById('addBtn').classList.add('hidden');
-            } else {
-                header.className = "bg-slate-900 px-6 pt-10 pb-8 rounded-b-[40px] shadow-lg sticky top-0 z-10 text-white";
-                roleIndicator.innerText = "ДИСПЕТЧЕР";
-                roleIndicator.className = "text-[9px] font-black bg-yellow-400 text-black px-3 py-1 rounded-full uppercase italic";
-                document.getElementById('addBtn').classList.remove('hidden');
-            }
-            renderTasks();
+        // Игровой мир и типы блоков (цвета вместо тяжелых текстур, чтобы не лагало)
+        const BLOCK_TYPES = {
+            1: { name: 'Земля', color: 0x553311, isBlock: true },
+            2: { name: 'Песок', color: 0xddcc99, isBlock: true },
+            3: { name: 'Гравий', color: 0x777777, isBlock: true },
+            4: { name: 'Камень', color: 0x888888, isBlock: true },
+            5: { name: 'Кирка', isBlock: false },
+            6: { name: 'Меч', isBlock: false },
+            7: { name: 'Печь', color: 0x333333, isBlock: true, isFurnace: true }
+        };
+        let activeSlot = 1;
+        const worldBlocks = []; // Массив для проверки столкновений и кликов
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+
+        // --- ГЕНЕРАЦИЯ ОПТИМИЗИРОВАННОГО МИРА ---
+        const worldSize = 12; // Небольшой размер, идеальный для телефонов
+        
+        function createBlock(x, y, z, typeId) {
+            const material = new THREE.MeshLambertMaterial({ color: BLOCK_TYPES[typeId].color });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(x, y, z);
+            mesh.blockTypeId = typeId;
+            scene.add(mesh);
+            worldBlocks.push(mesh);
         }
 
-        function logout() { location.reload(); }
-
-        function renderTasks() {
-            const list = document.getElementById('taskList');
-            list.innerHTML = '';
-
-            tasks.forEach(task => {
-                const card = document.createElement('div');
-                card.className = "bg-white rounded-[32px] p-6 shadow-sm border border-transparent";
+        // Строим только верхнюю «корку», чтобы не тратить память смартфона
+        for(let x = 0; x < worldSize; x++) {
+            for(let z = 0; z < worldSize; z++) {
+                createBlock(x, 0, z, 4); // Каменное основание
                 
-                let controls = `<button onclick="openChat(${task.id})" class="flex-1 bg-gray-100 text-gray-900 font-black py-4 rounded-2xl text-[10px] uppercase italic">Чат (${task.chat.length})</button>`;
-                
-                if (currentUser === 'courier') {
-                    controls += `<button onclick="completeTask(${task.id}, ${task.price})" class="flex-[2] glovo-yellow text-gray-900 font-black py-4 rounded-2xl text-[10px] uppercase italic shadow-md">Завершить: +${task.price}₮</button>`;
-                } else {
-                    controls += `
-                        <button onclick="rewardAction(${task.id})" class="flex-1 bg-green-100 text-green-700 font-black py-4 rounded-2xl text-[10px] uppercase">Бонус</button>
-                        <button onclick="penaltyAction(${task.id})" class="flex-1 bg-red-100 text-red-600 font-black py-4 rounded-2xl text-[10px] uppercase">Штраф</button>
-                        <button onclick="deleteTask(${task.id})" class="bg-gray-50 px-4 rounded-2xl text-gray-300 font-bold">×</button>
-                    `;
+                // Рандомим ландшафт: где-то песок, где-то земля или гравий
+                let rand = Math.random();
+                let topType = 1; // Земля по умолчанию
+                if (rand < 0.2) topType = 2; // Песок
+                else if (rand < 0.4) topType = 3; // Гравий
+
+                createBlock(x, 1, z, topType); 
+            }
+        }
+
+        // Поставим одну готовую печку в мире для примера
+        createBlock(5, 2, 5, 7);
+
+        // --- ЛОГИКА ИНСТРУМЕНТОВ И ВЗАИМОДЕЙСТВИЯ ---
+        const raycaster = new THREE.Raycaster();
+        const mousePointer = new THREE.Vector2(0, 0); // Центр экрана
+
+        function handleAction(type) {
+            // Направляем луч из центра экрана вперед
+            raycaster.setFromCamera(mousePointer, camera);
+            const intersects = raycaster.intersectObjects(worldBlocks);
+
+            if (intersects.length > 0 && intersects[0].distance < 4) {
+                const hitBlock = intersects[0].object;
+
+                if (type === 'break') {
+                    // Механика печки: если ломаем печь
+                    if(hitBlock.blockTypeId == 7) {
+                        document.getElementById('stats').innerText = "Печь сломана!";
+                    }
+                    // Убираем блок из сцены и массива
+                    scene.remove(hitBlock);
+                    worldBlocks.splice(worldBlocks.indexOf(hitBlock), 1);
+                } 
+                else if (type === 'place') {
+                    const current = BLOCK_TYPES[activeSlot];
+                    if (current.isBlock) {
+                        // Вычисляем позицию для нового блока на основе нормали стороны
+                        const normal = intersects[0].face.normal;
+                        const newPos = hitBlock.position.clone().add(normal);
+                        createBlock(newPos.x, newPos.y, newPos.z, activeSlot);
+                        
+                        if(activeSlot == 7) {
+                            document.getElementById('stats').innerText = "Вы поставили печь! Нажмите на неё Киркой.";
+                        }
+                    } else if (activeSlot == 5 && hitBlock.blockTypeId == 7) {
+                        // Если в руках кирка и кликаем по печке — «активируем» её
+                        document.getElementById('stats').innerText = "Печь работает: Переплавка гравия в камень...";
+                        setTimeout(() => { document.getElementById('stats').innerText = "Готово! Получен чистый Камень."; }, 2000);
+                    }
                 }
+            }
+        }
 
-                card.innerHTML = `
-                    <div class="flex justify-between items-center mb-3">
-                        <span class="text-[9px] font-black ${task.type === 'Epic' ? 'bg-purple-100 text-purple-700' : 'bg-green-100 text-green-700'} px-3 py-1 rounded-full uppercase">${task.type}</span>
-                        <span class="text-xl font-black text-gray-900">${task.price} ₮</span>
-                    </div>
-                    <h3 class="text-lg font-bold text-gray-800 mb-6 leading-tight">${task.title}</h3>
-                    <div class="flex gap-2 border-t border-gray-50 pt-5">${controls}</div>
-                `;
-                list.appendChild(card);
+        // Выбор слота инвентаря
+        window.selectSlot = function(slotId) {
+            activeSlot = slotId;
+            const slots = document.querySelectorAll('.slot');
+            slots.forEach((s, idx) => {
+                s.classList.toggle('active', idx === (slotId - 1));
             });
+            document.getElementById('info').innerText = "В руках: " + BLOCK_TYPES[slotId].name;
         }
 
-        // ДЕЙСТВИЯ ДИСПЕТЧЕРА
-        function rewardAction(id) {
-            const bonus = prompt("Введите сумму поощрения в токенах:", "100");
-            if (bonus && !isNaN(bonus)) {
-                tokens += parseInt(bonus);
-                rating = Math.min(5.00, rating + 0.05);
-                updateStats();
-                alert(`Курьеру начислено поощрение: ${bonus} ₮!`);
+        // --- УПРАВЛЕНИЕ И СЕНСОР (ПК + ТЕЛЕФОН) ---
+        
+        // Поворот камеры мышкой (ПК) или пальцем (Смартфон)
+        let isMovingCamera = false;
+        let previousTouch;
+
+        window.addEventListener('mousedown', () => isMovingCamera = true);
+        window.addEventListener('mouseup', () => isMovingCamera = false);
+        window.addEventListener('mousemove', (e) => {
+            if (!isMovingCamera) return;
+            yaw -= e.movementX * 0.003;
+            pitch -= e.movementY * 0.003;
+            pitch = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, pitch));
+        });
+
+        // Сенсорный поворот для телефонов
+        window.addEventListener('touchstart', (e) => {
+            if(e.target.tagName !== 'DIV') return; // Чтобы не ломать клики по кнопкам UI
+            previousTouch = e.touches[0];
+        });
+        window.addEventListener('touchmove', (e) => {
+            if(!previousTouch || e.touches.length > 1) return;
+            const touch = e.touches[0];
+            const movementX = touch.pageX - previousTouch.pageX;
+            const movementY = touch.pageY - previousTouch.pageY;
+            
+            yaw -= movementX * 0.005;
+            pitch -= movementY * 0.005;
+            pitch = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, pitch));
+            
+            previousTouch = touch;
+        });
+
+        // Кнопки клавиатуры для ПК
+        window.addEventListener('keydown', (e) => {
+            if(e.code === 'KeyW') moveForward = true;
+            if(e.code === 'KeyS') moveBackward = true;
+            if(e.code === 'KeyA') moveLeft = true;
+            if(e.code === 'KeyD') moveRight = true;
+            if(e.code === 'Space' && canJump) { velocity.y = 0.15; canJump = false; }
+            if(e.code === 'Digit1') selectSlot(1);
+            if(e.code === 'Digit2') selectSlot(2);
+            if(e.code === 'Digit3') selectSlot(3);
+            if(e.code === 'Digit4') selectSlot(4);
+            if(e.code === 'Digit5') selectSlot(5);
+            if(e.code === 'Digit6') selectSlot(6);
+            if(e.code === 'Digit7') selectSlot(7);
+        });
+        window.addEventListener('keyup', (e) => {
+            if(e.code === 'KeyW') moveForward = false;
+            if(e.code === 'KeyS') moveBackward = false;
+            if(e.code === 'KeyA') moveLeft = false;
+            if(e.code === 'KeyD') moveRight = false;
+        });
+        window.addEventListener('click', (e) => {
+            if(e.target.tagName === 'CANVAS') handleAction('break');
+        });
+
+        // Привязка экранных кнопок для смартфона
+        const setupMobileBtn = (id, pressAction, releaseAction) => {
+            const btn = document.getElementById(id);
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); pressAction(); });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); releaseAction(); });
+        };
+
+        setupMobileBtn('btn-w', () => moveForward = true, () => moveForward = false);
+        setupMobileBtn('btn-s', () => moveBackward = true, () => moveBackward = false);
+        setupMobileBtn('btn-a', () => moveLeft = true, () => moveLeft = false);
+        setupMobileBtn('btn-d', () => moveRight = true, () => moveRight = false);
+        setupMobileBtn('btn-jump', () => { if(canJump) { velocity.y = 0.15; canJump = false; } }, () => {});
+        setupMobileBtn('btn-break', () => handleAction('break'), () => {});
+        setupMobileBtn('btn-place', () => handleAction('place'), () => {});
+
+
+        // --- ИГРОВОЙ ЦИКЛ (АНИМАЦИЯ И ФИЗИКА) ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Направление взгляда камеры
+            const qx = new THREE.Quaternion();
+            qx.setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitch);
+            const qy = new THREE.Quaternion();
+            qy.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+            camera.quaternion.copy(qy).multiply(qx);
+
+            // Физика гравитации и падения
+            velocity.y -= gravity;
+            camera.position.y += velocity.y;
+
+            // Очень простая проверка коллизии с «землей» (высота y=2 — уровень ходьбы по блокам)
+            if (camera.position.y < 2.5) {
+                velocity.y = 0;
+                camera.position.y = 2.5;
+                canJump = true;
             }
+
+            // Движение игрока
+            direction.z = Number(moveForward) - Number(moveBackward);
+            direction.x = Number(moveRight) - Number(moveLeft);
+            direction.normalize();
+
+            // Переводим локальное движение относительно взгляда камеры в мировые координаты
+            const camYawMat = new THREE.Matrix4().makeRotationY(yaw);
+            const moveVector = new THREE.Vector3(direction.x, 0, -direction.z).applyMatrix4(camYawMat);
+            
+            camera.position.addScaledVector(moveVector, playerSpeed);
+
+            renderer.render(scene, camera);
         }
 
-        function penaltyAction(id) {
-            if (confirm("Выдать штраф за невыполнение? (-250 ₮ и рейтинг)")) {
-                tokens -= 250;
-                rating = Math.max(1.00, rating - 0.20);
-                updateStats();
-                alert("Штраф применен!");
-            }
-        }
+        // Авто подгон размера при повороте экрана телефона
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
 
-        function completeTask(id, price) {
-            tokens += price;
-            rating = Math.min(5.00, rating + 0.02);
-            tasks = tasks.filter(t => t.id !== id);
-            updateStats();
-            renderTasks();
-            alert("Заказ выполнен! Средства зачислены.");
-        }
-
-        function updateStats() {
-            document.getElementById('tokenCount').innerText = tokens;
-            document.getElementById('ratingDisplay').innerText = rating.toFixed(2);
-        }
-
-        function createTask() {
-            const name = document.getElementById('taskName').value;
-            const price = parseInt(document.getElementById('taskPrice').value);
-            if(name && price) {
-                tasks.push({ id: Date.now(), title: name, price: price, type: price >= 1000 ? "Epic" : "Standard", chat: [] });
-                toggleModal('createModal', false);
-                renderTasks();
-                document.getElementById('taskName').value = '';
-                document.getElementById('taskPrice').value = '';
-            }
-        }
-
-        function deleteTask(id) { tasks = tasks.filter(t => t.id !== id); renderTasks(); }
-
-        // ЧАТ
-        function openChat(id) {
-            currentChatTaskId = id;
-            const task = tasks.find(t => t.id === id);
-            document.getElementById('chatTitle').innerText = task.title;
-            renderMessages();
-            toggleModal('chatModal', true);
-        }
-
-        function sendMessage() {
-            const input = document.getElementById('chatInput');
-            if(!input.value) return;
-            const task = tasks.find(t => t.id === currentChatTaskId);
-            task.chat.push({ sender: currentUser, text: input.value });
-            input.value = '';
-            renderMessages();
-            renderTasks(); // Обновить количество сообщений на карточке
-        }
-
-        function renderMessages() {
-            const container = document.getElementById('chatMessages');
-            const task = tasks.find(t => t.id === currentChatTaskId);
-            container.innerHTML = task.chat.map(m => `
-                <div class="flex ${m.sender === currentUser ? 'justify-end' : 'justify-start'}">
-                    <div class="${m.sender === currentUser ? 'bg-[#00A082] text-white' : 'bg-white text-gray-900 shadow-sm'} max-w-[85%] p-4 rounded-2xl">
-                        <p class="text-[8px] font-black uppercase opacity-50 mb-1">${m.sender === 'courier' ? 'Курьер' : 'Диспетчер'}</p>
-                        <p class="text-sm font-medium leading-tight">${m.text}</p>
-                    </div>
-                </div>
-            `).join('');
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function toggleModal(id, show) { document.getElementById(id).classList.toggle('hidden', !show); }
+        // Запуск
+        animate();
     </script>
 </body>
 </html>
+
 
 
 
