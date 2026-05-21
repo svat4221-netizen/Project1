@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>JS Мой Майнкрафт с Текстурами</title>
+    <title>JS Майнкрафт с Рукой и Оружием</title>
     <style>
         * {
             box-sizing: border-box;
@@ -43,7 +43,6 @@
             z-index: 10;
             font-size: 14px;
             font-family: monospace;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
         
         #crosshair {
@@ -83,7 +82,6 @@
             justify-content: center;
             color: white;
             font-size: 10px;
-            font-family: sans-serif;
             text-align: center;
             background: #222;
             cursor: pointer;
@@ -119,7 +117,6 @@
             color: white;
             font-weight: bold;
             font-size: 18px;
-            backdrop-filter: blur(2px);
         }
 
         #action-btns {
@@ -144,8 +141,6 @@
             justify-content: center;
             font-size: 11px;
             font-weight: bold;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
-            backdrop-filter: blur(2px);
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -181,89 +176,99 @@
     </div>
 
     <script>
-        // --- ГЕНЕРАТОР ПИКСЕЛЬНЫХ ТЕКСТУР НА НАЧЕХУ ---
+        // --- ГЕНЕРАТОР ТЕКСТУР БЛОКОВ И ПРЕДМЕТОВ ---
         function generatePixelTexture(type) {
             const canvas = document.createElement('canvas');
-            canvas.width = 16;  // Стандартное разрешение Майнкрафта 16х16 пикселей
+            canvas.width = 16;
             canvas.height = 16;
             const ctx = canvas.getContext('2d');
 
-            // Генерация шума для пикселей
+            ctx.clearRect(0, 0, 16, 16); // Прозрачный фон для инструментов
+
             for (let x = 0; x < 16; x++) {
                 for (let y = 0; y < 16; y++) {
-                    let r, g, b;
-                    let noise = Math.random() * 20 - 10; // Рандомный оттенок для пикселя
+                    let r, g, b, a = 255;
+                    let noise = Math.random() * 20 - 10;
 
-                    if (type === 'dirt') { // Земля
+                    if (type === 'dirt') {
                         r = 85 + noise; g = 51 + noise; b = 17 + noise;
-                        // Сверху добавим немного зеленой травы на верхнюю грань куба
                         if (y < 3 && Math.random() > 0.3) { r = 40 + noise; g = 115 + noise; b = 35 + noise; }
                     } 
-                    else if (type === 'sand') { // Песок
-                        r = 215 + noise; g = 195 + noise; b = 135 + noise;
-                        if (Math.random() > 0.8) { r -= 20; g -= 20; } // Эффект песчинок
-                    } 
-                    else if (type === 'gravel') { // Гравий
-                        r = 110 + noise; g = 110 + noise; b = 115 + noise;
-                        if (Math.random() > 0.7) { r -= 30; g -= 30; b -= 30; } // Камушки
-                    } 
-                    else if (type === 'stone') { // Камень
-                        r = 125 + noise; g = 125 + noise; b = 125 + noise;
-                    } 
-                    else if (type === 'furnace') { // Печка
+                    else if (type === 'sand') { r = 215 + noise; g = 195 + noise; b = 135 + noise; } 
+                    else if (type === 'gravel') { r = 110 + noise; g = 110 + noise; b = 115 + noise; } 
+                    else if (type === 'stone') { r = 125 + noise; g = 125 + noise; b = 125 + noise; } 
+                    else if (type === 'furnace') {
                         r = 60 + noise; g = 60 + noise; b = 65 + noise;
-                        // Рисуем рамку печки
                         if (x === 0 || x === 15 || y === 0 || y === 15) { r = 40; g = 40; b = 40; }
-                        // Имитация решетки по центру
                         if (y >= 6 && y <= 10 && x >= 4 && x <= 12) { r = 25; g = 25; b = 25; }
                     }
+                    else if (type === 'skin') { // Текстура кожи руки Стива
+                        r = 215 + noise; g = 145 + noise; b = 110 + noise;
+                        if(y < 5) { r = 30 + noise; g = 150 + noise; b = 150 + noise; } // Бирюзовый рукав футболки
+                    }
+                    else if (type === 'pickaxe') { // Рисуем пиксельную кирку
+                        a = 0; // По умолчанию прозрачно
+                        // Деревянная палка по диагонали
+                        if (x === y && x > 4 && x < 13) { r = 100; g = 65; b = 30; a = 255; }
+                        // Железное лезвие сверху-слева
+                        if ((x === 3 && y >= 2 && y <= 5) || (y === 3 && x >= 2 && x <= 5) || (x===4 && y===2) || (x===2 && y===4)) { r = 200; g = 200; b = 210; a = 255; }
+                    }
+                    else if (type === 'sword') { // Рисуем пиксельный меч
+                        a = 0;
+                        // Рукоятка
+                        if ((x === 12 && y === 12) || (x === 11 && y === 11)) { r = 100; g = 65; b = 30; a = 255; }
+                        // Гарда (крестовина)
+                        if ((x === 10 && y === 11) || (x === 11 && y === 10) || (x === 9 && y === 10) || (x === 10 && y === 9)) { r = 130; g = 90; b = 40; a = 255; }
+                        // Алмазное лезвие по диагонали вверх-влево
+                        if (x === y && x >= 2 && x <= 9) { r = 80; g = 220; b = 220; a = 255; }
+                        if (x === y - 1 && x >= 2 && x <= 8) { r = 40; g = 180; b = 180; a = 255; }
+                    }
 
-                    ctx.fillStyle = `rgb(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)})`;
-                    ctx.fillRect(x, y, 1, 1);
+                    if (a > 0) {
+                        ctx.fillStyle = `rgba(${Math.floor(r)},${Math.floor(g)},${Math.floor(b)},${a/255})`;
+                        ctx.fillRect(x, y, 1, 1);
+                    }
                 }
             }
 
             const texture = new THREE.CanvasTexture(canvas);
-            texture.magFilter = THREE.NearestFilter; // Важно! Убирает размытие, делая текстуру пиксельной
+            texture.magFilter = THREE.NearestFilter;
             texture.minFilter = THREE.NearestFilter;
             return texture;
         }
 
-        // --- ИНИЦИАЛИЗАЦИЯ СЦЕНЫ ---
+        // --- ИНИЦИАЛИЗАЦИЯ ДВИЖКА ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x7ec0ee);
         scene.fog = new THREE.FogExp2(0x7ec0ee, 0.06);
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: false }); // Отключаем сглаживание для олдскульного вида
+        const renderer = new THREE.WebGLRenderer({ antialias: false });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Освещение (направленное, чтобы блоки имели объемные тени)
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
         scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.4);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.35);
         directionalLight.position.set(15, 30, 15);
         scene.add(directionalLight);
 
-        // Создаем текстуры
+        // Генерация всех текстур
         const textures = {
-            dirt: generatePixelTexture('dirt'),
-            sand: generatePixelTexture('sand'),
-            gravel: generatePixelTexture('gravel'),
-            stone: generatePixelTexture('stone'),
-            furnace: generatePixelTexture('furnace')
+            dirt: generatePixelTexture('dirt'), sand: generatePixelTexture('sand'),
+            gravel: generatePixelTexture('gravel'), stone: generatePixelTexture('stone'),
+            furnace: generatePixelTexture('furnace'), skin: generatePixelTexture('skin'),
+            pickaxe: generatePixelTexture('pickaxe'), sword: generatePixelTexture('sword')
         };
 
-        // Настройки предметов
         const BLOCK_TYPES = {
             1: { name: 'Земля', texture: textures.dirt, isBlock: true },
             2: { name: 'Песок', texture: textures.sand, isBlock: true },
             3: { name: 'Гравий', texture: textures.gravel, isBlock: true },
             4: { name: 'Камень', texture: textures.stone, isBlock: true },
-            5: { name: 'Кирка', isBlock: false },
-            6: { name: 'Меч', isBlock: false },
+            5: { name: 'Кирка', texture: textures.pickaxe, isBlock: false },
+            6: { name: 'Меч', texture: textures.sword, isBlock: false },
             7: { name: 'Печь', texture: textures.furnace, isBlock: true }
         };
         
@@ -280,7 +285,28 @@
         camera.position.set(5, 3, 5);
         let pitch = 0, yaw = 0;
 
-        // Создание блока в мире
+        // --- СОЗДАНИЕ КВАДРАТНОЙ РУКИ И ПРЕДМЕТА (FPS VIEW) ---
+        const handHolder = new THREE.Group(); // Контейнер для руки, привязанный к камере
+
+        // Сама рука (вытянутый куб Стива)
+        const handGeo = new THREE.BoxGeometry(0.25, 0.25, 0.8);
+        const handMat = new THREE.MeshLambertMaterial({ map: textures.skin });
+        const handMesh = new THREE.Mesh(handGeo, handMat);
+        handMesh.position.set(0.35, -0.35, -0.6); // Позиция справа внизу экрана
+        handMesh.rotation.set(0.2, -0.2, 0);
+        handHolder.add(handMesh);
+
+        // Спрайт для отображения оружия/блока в руке
+        const itemMat = new THREE.SpriteMaterial({ map: textures.dirt, transparent: true });
+        const itemSprite = new THREE.Sprite(itemMat);
+        itemSprite.position.set(0.25, -0.2, -0.75); // Чуть впереди руки
+        itemSprite.scale.set(0.35, 0.35, 1);
+        handHolder.add(itemSprite);
+
+        scene.add(handHolder);
+
+        // Генерация карты
+        const worldSize = 10;
         function createBlock(x, y, z, typeId) {
             const material = new THREE.MeshLambertMaterial({ map: BLOCK_TYPES[typeId].texture });
             const mesh = new THREE.Mesh(geometry, material);
@@ -290,35 +316,34 @@
             worldBlocks.push(mesh);
         }
 
-        // Рендерим мир
-        const worldSize = 10;
         for(let x = 0; x < worldSize; x++) {
             for(let z = 0; z < worldSize; z++) {
-                createBlock(x, 0, z, 4); // Камень вниз
+                createBlock(x, 0, z, 4);
                 let rand = Math.random();
-                let topType = 1; // Земля по дефолту
-                if (rand < 0.15) topType = 2; // Песок
-                else if (rand < 0.3) topType = 3; // Гравий
+                let topType = 1;
+                if (rand < 0.15) topType = 2;
+                else if (rand < 0.3) topType = 3;
                 createBlock(x, 1, z, topType);
             }
         }
-        createBlock(4, 2, 4, 7); // Стартовая печка
+        createBlock(4, 2, 4, 7);
 
-        // Ломание и установка блоков
-        const raycaster = new THREE.Raycaster();
-        const mousePointer = new THREE.Vector2(0, 0);
+        // --- АНИМАЦИЯУДАРОВ РУКОЙ ---
+        let isAttacking = false;
+        let attackTime = 0;
 
         function handleAction(type) {
-            raycaster.setFromCamera(mousePointer, camera);
+            if (!isAttacking) { isAttacking = true; attackTime = 0; } // Включаем взмах руки
+
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
             const intersects = raycaster.intersectObjects(worldBlocks);
 
             if (intersects.length > 0 && intersects[0].distance < 5) {
                 const hitBlock = intersects[0].object;
 
                 if (type === 'break') {
-                    if(hitBlock.blockTypeId == 7) {
-                        document.getElementById('stats').innerText = "Печь сломана!";
-                    }
+                    if(hitBlock.blockTypeId == 7) document.getElementById('stats').innerText = "Печь сломана!";
                     scene.remove(hitBlock);
                     worldBlocks.splice(worldBlocks.indexOf(hitBlock), 1);
                 } 
@@ -328,12 +353,8 @@
                         const normal = intersects[0].face.normal;
                         const newPos = hitBlock.position.clone().add(normal);
                         createBlock(newPos.x, newPos.y, newPos.z, activeSlot);
-                        
-                        if(activeSlot == 7) {
-                            document.getElementById('stats').innerText = "Вы поставили печь! Кликните по ней Киркой.";
-                        }
                     } else if (activeSlot == 5 && hitBlock.blockTypeId == 7) {
-                        document.getElementById('stats').innerText = "Печь топится: Переплавка гравия...";
+                        document.getElementById('stats').innerText = "Печь топится...";
                         setTimeout(() => { document.getElementById('stats').innerText = "Успех! Получен чистый Камень."; }, 2000);
                     }
                 }
@@ -343,43 +364,39 @@
         window.selectSlot = function(slotId) {
             activeSlot = slotId;
             const slots = document.querySelectorAll('.slot');
-            slots.forEach((s, idx) => {
-                s.classList.toggle('active', idx === (slotId - 1));
-            });
-            document.getElementById('info').innerText = "В руках: " + BLOCK_TYPES[slotId].name;
+            slots.forEach((s, idx) => s.classList.toggle('active', idx === (slotId - 1)));
+            
+            const currentItem = BLOCK_TYPES[slotId];
+            document.getElementById('info').innerText = "В руках: " + currentItem.name;
+            
+            // Меняем текстуру предмета в руке на выбранный блок или оружие
+            itemMat.map = currentItem.texture;
+            itemMat.needsUpdate = true;
         }
+
+        // Первичный выбор предмета
+        selectSlot(1);
 
         // --- СЕНСОР И КАМЕРА ---
         let previousTouch;
-
         window.addEventListener('touchstart', (e) => {
-            if(e.target.tagName === 'CANVAS' || e.target.id === 'crosshair') {
-                previousTouch = e.touches[0];
-            }
-        }, { passive: false });
-
+            if(e.target.tagName === 'CANVAS' || e.target.id === 'crosshair') previousTouch = e.touches[0];
+        });
         window.addEventListener('touchmove', (e) => {
             if(!previousTouch || e.touches.length > 1) return;
             const touch = e.touches[0];
-            const movementX = touch.pageX - previousTouch.pageX;
-            const movementY = touch.pageY - previousTouch.pageY;
-            
-            yaw -= movementX * 0.006;
-            pitch -= movementY * 0.006;
+            yaw -= (touch.pageX - previousTouch.pageX) * 0.006;
+            pitch -= (touch.pageY - previousTouch.pageY) * 0.006;
             pitch = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, pitch));
-            
             previousTouch = touch;
-        }, { passive: false });
-
+        });
         window.addEventListener('touchend', () => { previousTouch = null; });
 
         const setupMobileBtn = (id, press, release) => {
             const btn = document.getElementById(id);
-            if(!btn) return;
             btn.addEventListener('touchstart', (e) => { e.preventDefault(); press(); });
             btn.addEventListener('touchend', (e) => { e.preventDefault(); release(); });
         };
-
         setupMobileBtn('btn-w', () => moveForward = true, () => moveForward = false);
         setupMobileBtn('btn-s', () => moveBackward = true, () => moveBackward = false);
         setupMobileBtn('btn-a', () => moveLeft = true, () => moveLeft = false);
@@ -392,25 +409,37 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            const qx = new THREE.Quaternion();
-            qx.setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitch);
-            const qy = new THREE.Quaternion();
-            qy.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+            // Поворот камеры
+            const qx = new THREE.Quaternion(); qx.setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitch);
+            const qy = new THREE.Quaternion(); qy.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
             camera.quaternion.copy(qy).multiply(qx);
 
-            velocity.y -= gravity;
-            camera.position.y += velocity.y;
+            // Привязываем контейнер руки строго к позиции и вращению камеры
+            handHolder.position.copy(camera.position);
+            handHolder.quaternion.copy(camera.quaternion);
 
-            if (camera.position.y < 2.5) {
-                velocity.y = 0;
-                camera.position.y = 2.5;
-                canJump = true;
+            // Анимация взмаха (удара) руки Стива
+            if (isAttacking) {
+                attackTime += 0.2;
+                handMesh.position.z = -0.6 + Math.sin(attackTime) * 0.15; // Движение вперед-назад
+                handMesh.rotation.x = 0.2 + Math.sin(attackTime) * 0.4;    // Наклон вниз
+                itemSprite.position.z = -0.75 + Math.sin(attackTime) * 0.15;
+                if (attackTime >= Math.PI) { 
+                    isAttacking = false; 
+                    handMesh.position.set(0.35, -0.35, -0.6); // Возвращаем на место
+                    handMesh.rotation.set(0.2, -0.2, 0);
+                    itemSprite.position.set(0.25, -0.2, -0.75);
+                }
             }
 
+            // Гравитация
+            velocity.y -= gravity; camera.position.y += velocity.y;
+            if (camera.position.y < 2.5) { velocity.y = 0; camera.position.y = 2.5; canJump = true; }
+
+            // Ходьба
             direction.z = Number(moveForward) - Number(moveBackward);
             direction.x = Number(moveRight) - Number(moveLeft);
             direction.normalize();
-
             const camYawMat = new THREE.Matrix4().makeRotationY(yaw);
             const moveVector = new THREE.Vector3(direction.x, 0, -direction.z).applyMatrix4(camYawMat);
             camera.position.addScaledVector(moveVector, playerSpeed);
@@ -419,8 +448,7 @@
         }
 
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
@@ -428,6 +456,7 @@
     </script>
 </body>
 </html>
+
 
 
 
