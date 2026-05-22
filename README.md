@@ -1,361 +1,212 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Minecraft FPS & 3D Items</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>3D Voxel Game: Алмазный Меч</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
-        html, body { width: 100%; height: 100%; overflow: hidden; background: #7ec0ee; position: fixed; font-family: monospace; }
-        canvas { display: block; position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; z-index: 1; }
-        
-        #ui { position: absolute; top: 15px; left: 15px; color: white; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 6px; z-index: 10; font-size: 13px; pointer-events: none; }
-        #crosshair { position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; background: white; transform: translate(-50%, -50%); z-index: 10; opacity: 0.8; pointer-events: none; }
-        
-        #hotbar { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); display: flex; background: rgba(0,0,0,0.75); padding: 5px; border-radius: 8px; z-index: 10; max-width: 95%; overflow-x: auto; }
-        .slot { width: 45px; height: 45px; border: 2px solid #555; margin: 0 3px; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; text-align: center; background: #222; border-radius: 5px; flex-shrink: 0; }
-        .slot.active { border-color: #fff; background: #555; box-shadow: 0 0 8px #fff; }
-        
-        #controls { position: absolute; bottom: 20px; left: 20px; display: grid; grid-template-columns: repeat(3, 50px); grid-gap: 6px; z-index: 10; }
-        .btn { width: 50px; height: 50px; background: rgba(255,255,255,0.25); border: 2px solid rgba(255,255,255,0.7); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; }
-        
-        #action-btns { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 10; }
-        .action-btn { width: 65px; height: 65px; background: rgba(0,0,0,0.55); border: 2px solid #fff; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; }
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #ui-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: sans-serif;
+            font-size: 14px;
+            text-shadow: 1px 1px 2px black;
+            pointer-events: none;
+        }
     </style>
+    <!-- Подключаем библиотеку Three.js для работы с 3D -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-    <div id="ui">
-        <div id="info">Генерация мира и моделей...</div>
-    </div>
-    
-    <div id="crosshair"></div>
-    
-    <div id="hotbar">
-        <div class="slot active" onclick="selectSlot(1)">Земля</div>
-        <div class="slot" onclick="selectSlot(2)">Песок</div>
-        <div class="slot" onclick="selectSlot(3)">Камень</div>
-        <div class="slot" onclick="selectSlot(4)">Кирка D</div>
-        <div class="slot" onclick="selectSlot(5)">Меч D</div>
-        <div class="slot" onclick="selectSlot(6)">Мотыга D</div>
-        <div class="slot" onclick="selectSlot(7)">Лопата W</div>
-        <div class="slot" onclick="selectSlot(8)">Лопата D</div>
-        <div class="slot" onclick="selectSlot(9)">Мотыга D</div>
-    </div>
-
-    <div id="controls">
-        <div></div><div class="btn" id="btn-w">W</div><div></div>
-        <div class="btn" id="btn-a">A</div><div class="btn" id="btn-s">S</div><div class="btn" id="btn-d">D</div>
-    </div>
-
-    <div id="action-btns">
-        <div class="action-btn" id="btn-break">ЛОМАТЬ</div>
-        <div class="action-btn" id="btn-place">СТАВИТЬ</div>
-        <div class="action-btn" id="btn-jump">ПРЫЖОК</div>
+    <div id="ui-container">
+        <div>Оружие в руке: Объёмный Алмазный Меч</div>
+        <div id="online-status">Статус: Готов к подключению мультиплеера</div>
     </div>
 
     <script>
-        // --- ЦВЕТОВАЯ ПАЛИТРА ДЛЯ ИНСТРУМЕНТОВ (0 - пустота) ---
-        const W1 = 0x5c4033; // Тёмное дерево
-        const W2 = 0x8b5a2b; // Светлое дерево (рукоять)
-        const S1 = 0x333333; // Чёрная обводка алмаза (S)
-        const S2 = 0x247a7c; // Тёмно-бирюзовый (контур D)
-        const D1 = 0x4dedf0; // Яркий алмаз (D)
-        const D2 = 0xb2ffff; // Блик на алмазе
+        // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ДВИЖКА ---
+        let scene, camera, renderer;
+        let currentWeaponMesh;
+        let terrainBlocks = [];
 
-        const TOOL_GRIDS = {
-            // ТОЧНАЯ СЕТКА АЛМАЗНОГО МЕЧА ИЗ MINECRAFT 16x16
-            sword: [
-                [0,0,0,0,0,0,0,0,0,0,0,0,0,D2,S1,0],
-                [0,0,0,0,0,0,0,0,0,0,0,0,D2,D1,S1,0],
-                [0,0,0,0,0,0,0,0,0,0,0,D2,D1,S2,0,0],
-                [0,0,0,0,0,0,0,0,0,0,D2,D1,S2,0,0,0],
-                [0,0,0,0,0,0,0,0,0,D2,D1,S2,0,0,0,0],
-                [0,0,0,0,0,0,0,0,D2,D1,S2,0,0,0,0,0],
-                [0,0,0,0,0,0,0,D2,D1,S2,0,0,0,0,0,0],
-                [0,0,0,0,0,0,D2,D1,S2,0,0,0,0,0,0,0],
-                [0,0,0,0,0,D2,D1,S2,0,0,0,0,0,0,0,0],
-                [0,0,0,0,D2,D1,S2,0,0,0,0,0,0,0,0,0],
-                [0,0,0,S1,S2,S2,0,0,0,0,0,0,0,0,0,0],
-                [0,0,S1,W2,S1,0,0,0,0,0,0,0,0,0,0,0],
-                [0,S1,W2,S1,0,0,0,0,0,0,0,0,0,0,0,0],
-                [S1,W2,S1,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                [S1,S1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-                [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-            ],
-            // СЕТКА АЛМАЗНОЙ КИРКИ 7x8
-            pickaxe: [
-                [0,S1,S1,S1,S1,S1,S1,S1,S1,0,0],
-                [S1,D2,D1,D1,D1,S2,S2,D1,D1,S1,0],
-                [S1,D1,D1,S1,S1,0,0,S1,S2,D1,S1],
-                [0,S1,S1,0,0,0,0,0,S1,S2,S1],
-                [0,0,0,0,0,W1,0,0,0,S1,0],
-                [0,0,0,0,W1,0,0,0,0,0,0],
-                [0,0,0,W1,0,0,0,0,0,0,0],
-                [0,0,W1,0,0,0,0,0,0,0,0],
-                [0,W1,0,0,0,0,0,0,0,0,0,0],
-                [W1,0,0,0,0,0,0,0,0,0,0,0],
-            ],
-            // СЕТКА ЛОПАТЫ (АЛМАЗ ИЛИ ДЕРЕВО) 5x9
-            shovel: [
-                [0,0,S1,S1,0],
-                [0,S1,D1,D1,S1],
-                [0,S1,D1,D1,S1],
-                [0,S1,D1,D1,S1],
-                [0,0,S1,W2,S1],
-                [0,0,0,W1,0],
-                [0,0,W1,0,0],
-                [0,W1,0,0,0],
-                [W1,0,0,0,0]
-            ],
-            // СЕТКА МОТЫГИ 7x8
-            hoe: [
-                [0,S1,S1,S1,S1,0,0],
-                [S1,D1,D1,D1,D1,S1,0],
-                [S1,D1,S1,S1,S2,D1,S1],
-                [0,S1,0,0,S1,S2,S1],
-                [0,0,0,0,W1,S1,0],
-                [0,0,0,W1,0,0,0],
-                [0,0,W1,0,0,0,0],
-                [0,W1,0,0,0,0,0],
-                [W1,0,0,0,0,0,0]
-            ]
-        };
+        // --- 1. ГЛАВНАЯ НАСТРОЙКА ИГРЫ (ИНИЦИАЛИЗАЦИЯ) ---
+        function init() {
+            // Создаем 3D сцену
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x78a7ff); // Красивое голубое небо
+            scene.fog = new THREE.FogExp2(0x78a7ff, 0.04);
 
-        // --- ГЕНЕРАТОР ПРОЦЕДУРНЫХ ТЕКСТУР ---
-        function createMinecraftTexture(type) {
-            const canvas = document.createElement('canvas'); canvas.width = 16; canvas.height = 16;
-            const ctx = canvas.getContext('2d');
-            for (let x = 0; x < 16; x++) {
-                for (let y = 0; y < 16; y++) {
-                    let r, g, b, noise = Math.random() * 16 - 8;
-                    if (type === 'dirt') {
-                        r = 85 + noise; g = 55 + noise; b = 25 + noise;
-                        if (y < 3 && Math.random() > 0.2) { r = 50 + noise; g = 120 + noise; b = 35 + noise; }
-                    } else if (type === 'sand') { r = 215 + noise; g = 195 + noise; b = 135 + noise; }
-                    else if (type === 'stone') { r = 120 + noise; g = 120 + noise; b = 120 + noise; }
-                    else if (type === 'skin') {
-                        r = 210 + noise; g = 140 + noise; b = 105 + noise;
-                        if (y < 4) { r = 35; g = 145; b = 145; }
-                    }
-                    ctx.fillStyle = "rgb(" + Math.floor(r) + "," + Math.floor(g) + "," + Math.floor(b) + ")"; ctx.fillRect(x, y, 1, 1);
-                }
-            }
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.magFilter = THREE.NearestFilter; texture.minFilter = THREE.NearestFilter;
-            return texture;
-        }
+            // Настраиваем камеру (глаза игрока)
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2, 5); // Поднимаем камеру на уровень роста
 
-        window.onload = function() { startWorld(); };
-
-        function startWorld() {
-            // --- НАСТРОЙКИ СЦЕНЫ И РЕНДЕРА ---
-            const scene = new THREE.Scene(); scene.background = new THREE.Color(0x7ec0ee); scene.fog = new THREE.FogExp2(0x7ec0ee, 0.05);
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 500);
-            const renderer = new THREE.WebGLRenderer({ antialias: false });
-            renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            // Рендерер для вывода графики на экран телефона
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
             document.body.appendChild(renderer.domElement);
 
-            // Освещение
-            const lightA = new THREE.AmbientLight(0xffffff, 0.85); scene.add(lightA);
-            const lightD = new THREE.DirectionalLight(0xffffff, 0.35); lightD.position.set(10, 25, 10); scene.add(lightD);
+            // ВАЖНО: Освещение сцены (без него объемные кубы сольются в кашу)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // Равномерный свет со всех сторон[span_4](start_span)[span_4](end_span)
+            scene.add(ambientLight);
 
-            // Текстуры блоков и кожи
-            const texDirt = createMinecraftTexture('dirt'), texSand = createMinecraftTexture('sand'), texStone = createMinecraftTexture('stone'), texSkin = createMinecraftTexture('skin');
+            const sunLight = new THREE.DirectionalLight(0xffffff, 0.8); // Яркое солнце, создающее тени[span_5](start_span)[span_5](end_span)
+            sunLight.position.set(12, 24, 12);
+            sunLight.castShadow = true;
+            scene.add(sunLight);
 
-            // --- СИСТЕМА ДАТА-ИНВЕНТАРЯ И ОНЛАЙН-ФУНДАМЕНТ ---
-            // Уникальные ID блоков (задел для онлайн-сервера)
-            const BLOCK_IDS = { dirt: 1, sand: 2, stone: 3 };
+            // Генерируем землю из воксельных кубов
+            createWorld();
 
-            const DATA_ITEMS = {
-                1: { name: 'Земля', texture: texDirt, isBlock: true, blockId: BLOCK_IDS.dirt },
-                2: { name: 'Песок', texture: texSand, isBlock: true, blockId: BLOCK_IDS.sand },
-                3: { name: 'Камень', texture: texStone, isBlock: true, blockId: BLOCK_IDS.stone },
-                4: { name: 'Алмазная Кирка', modelKey: 'pickaxe', material: 'D', isBlock: false },
-                5: { name: 'Алмазный Меч', modelKey: 'sword', material: 'D', isBlock: false },
-                6: { name: 'Алмазная Мотыга', modelKey: 'hoe', material: 'D', isBlock: false },
-                7: { name: 'Деревянная Лопата', modelKey: 'shovel', material: 'W', isBlock: false }, // Специально деревянная
-                8: { name: 'Алмазная Лопата', modelKey: 'shovel', material: 'D', isBlock: false },
-                9: { name: 'Алмазная Мотыга', modelKey: 'hoe', material: 'D', isBlock: false }
-            };
+            // --- ДОБАВЛЕНИЕ ИНСТРУМЕНТА В РУКУ ИГРОКА ---
+            // Генерируем наш Алмазный Меч через функцию[span_6](start_span)[span_6](end_span)
+            currentWeaponMesh = createVoxelTool('diamond_sword');
+            
+            // Прикрепляем его жестко к камере, чтобы он двигался за взглядом[span_7](start_span)[span_7](end_span)
+            camera.add(currentWeaponMesh);
+            scene.add(camera); // Добавляем камеру с мечом в сцену
 
-            let activeSlot = 1; const blocksArray = []; const blockGeometry = new THREE.BoxGeometry(1, 1, 1);
-            let moveW = false, moveS = false, moveA = false, moveD = false, jumpPossible = false;
-            let playerVelocity = new THREE.Vector3(); const pSpeed = 0.075, pGravity = 0.0075;
-            camera.position.set(4, 3, 4); let cameraPitch = 0, cameraYaw = 0;
+            // Идеальное позиционирование в правой нижней части экрана[span_8](start_span)[span_8](end_span)
+            currentWeaponMesh.position.set(0.35, -0.45, -0.7); 
 
-            // --- КВАДРАТНАЯ РУКА И КОНТЕЙНЕР ДЛЯ 3D ИНСТРУМЕНТОВ (FPS) ---
-            const cameraRig = new THREE.Group();
-            const armGeo = new THREE.BoxGeometry(0.14, 0.14, 0.55);
-            const armMat = new THREE.MeshLambertMaterial({ map: texSkin });
-            const armMesh = new THREE.Mesh(armGeo, armMat);
-            armMesh.position.set(0.28, -0.28, -0.42); armMesh.rotation.set(0.1, -0.1, 0);
-            cameraRig.add(armMesh);
+            // НАКЛОН И ПОВОРОТ: Меч стоит ВЕРТИКАЛЬНО и слегка наклонен вперед в руке[span_9](start_span)[span_9](end_span)[span_10](start_span)[span_10](end_span)!
+            currentWeaponMesh.rotation.set(Math.PI / 5, -Math.PI / 7, Math.PI / 12);
 
-            const toolHolder = new THREE.Group();
-            // Дефолтная позиция контейнера
-            toolHolder.position.set(0.25, -0.16, -0.44); 
-            cameraRig.add(toolHolder); scene.add(cameraRig);
-
-            const singleVoxelGeo = new THREE.BoxGeometry(0.022, 0.022, 0.022); // Размер кубика модели
-
-            // --- СБОРКА 3D ИНСТРУМЕНТА ИЗ ВОКСЕЛЕЙ ---
-            function redrawItemInHand() {
-                while(toolHolder.children.length > 0) { toolHolder.remove(toolHolder.children[0]); }
-                const current = DATA_ITEMS[activeSlot];
-
-                if (current.isBlock) {
-                    const previewGeo = new THREE.BoxGeometry(0.09, 0.09, 0.09);
-                    const previewMat = new THREE.MeshLambertMaterial({ map: current.texture });
-                    const previewMesh = new THREE.Mesh(previewGeo, previewMat);
-                    toolHolder.add(previewMesh);
-                    toolHolder.position.set(0.22, -0.16, -0.46); // Блок держится ровно
-                    toolHolder.rotation.set(0.2, Math.PI / 4, 0);
-                } else {
-                    let matrix = TOOL_GRIDS[current.modelKey];
-                    if (!matrix) return;
-                    
-                    const rows = matrix.length;
-                    for (let y = 0; y < rows; y++) {
-                        for (let x = 0; x < matrix[y].length; x++) {
-                            let color = matrix[y][x];
-                            // Если инструмент деревянный (material: 'W'), заменяем цвета алмаза на дерево
-                            if (current.material === 'W' && (color === D1 || color === D2 || color === S1 || color === S2)) {
-                                color = W2; // Светлое дерево
-                            }
-                            
-                            if (color !== 0) {
-                                const vMat = new THREE.MeshLambertMaterial({ color: color });
-                                const vMesh = new THREE.Mesh(singleVoxelGeo, vMat);
-                                vMesh.position.set((x - matrix[y].length / 2) * 0.022, (rows / 2 - y) * 0.022, 0);
-                                toolHolder.add(vMesh);
-                            }
-                        }
-                    }
-                    
-                    // --- НАСТРОЙКА ПОЛОЖЕНИЯ В РУКЕ (ТО, ЧТО ТЫ ПРОСИЛ) ---
-                    if (current.modelKey === 'sword') {
-                        // Меч: ВЕРТИКАЛЬНО ВВЕРХ, как в боевой стойке
-                        toolHolder.position.set(0.18, -0.05, -0.45);
-                        toolHolder.rotation.set(0, 0, -Math.PI / 6); // Красивый боевой наклон
-                    } else if (current.modelKey === 'shovel' || current.modelKey === 'hoe' || current.modelKey === 'pickaxe') {
-                        // Кирка/Лопата/Мотыга: Готовы копать, ВНИЗ И ВПЕРЕД
-                        toolHolder.position.set(0.28, -0.14, -0.48);
-                        toolHolder.rotation.set(0.3, Math.PI / 3, 0); 
-                    }
-                }
-            }
-
-            // --- ОНЛАЙН-СИСТЕМА: ПРОЦЕДУРНОЕ ПОСТРОЕНИЕ МИРА ---
-            function buildWorldBlock(x, y, z, blockId) {
-                // Ищем текстуру по blockId в DATA_ITEMS
-                const mat = new THREE.MeshLambertMaterial({ map: DATA_ITEMS[blockId].texture });
-                const mesh = new THREE.Mesh(blockGeometry, mat); mesh.position.set(x, y, z);
-                mesh.blockId = blockId; // Сохраняем blockId в меше
-                scene.add(mesh); blocksArray.push(mesh);
-            }
-
-            // Генерируем мир (8х8) через уникальные blockId
-            for (let x = 0; x < 8; x++) {
-                for (let z = 0; z < 8; z++) {
-                    buildWorldBlock(x, 0, z, BLOCK_IDS.stone); // Каменный слой
-                    buildWorldBlock(x, 1, z, Math.random() < 0.25 ? BLOCK_IDS.sand : BLOCK_IDS.dirt); // Верхний слой
-                }
-            }
-
-            // Действия игрока
-            let swingActive = false, swingProgress = 0;
-            function triggerAction(actionType) {
-                if (!swingActive) { swingActive = true; swingProgress = 0; }
-                const raycaster = new THREE.Raycaster();
-                raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-                const hits = raycaster.intersectObjects(blocksArray);
-                if (hits.length > 0 && hits[0].distance < 4.2) {
-                    const targeted = hits[0].object;
-                    if (actionType === 'break') {
-                        // СЛОМАТЬ: Удаляем и из массива, и из сцены
-                        scene.remove(targeted);
-                        blocksArray.splice(blocksArray.indexOf(targeted), 1);
-                        // Задел для онлайна: отправить серверу coordinate( targeted.position ), action: 'break'
-                    } 
-                    else if (actionType === 'place' && DATA_ITEMS[activeSlot].isBlock) {
-                        // ПОСТАВИТЬ: Используем coordinate sideNormal и blockId из инвентаря
-                        const sideNormal = hits[0].face.normal; const spawnPos = targeted.position.clone().add(sideNormal);
-                        buildWorldBlock(spawnPos.x, spawnPos.y, spawnPos.z, DATA_ITEMS[activeSlot].blockId);
-                        // Задел для онлайна: отправить серверу spawnPos, action: 'place', blockId
-                    }
-                }
-            }
-
-            window.selectSlot = function(id) {
-                activeSlot = id;
-                document.querySelectorAll('.slot').forEach((s, idx) => s.classList.toggle('active', idx === (id - 1)));
-                document.getElementById('info').innerText = "В руках: " + DATA_ITEMS[id].name;
-                redrawItemInHand();
-            };
-            selectSlot(1);
-
-            // Тач-управление обзором камеры
-            let lastTouchState;
-            window.addEventListener('touchstart', function(e) { if (e.target.tagName === 'CANVAS' || e.target.id === 'crosshair') { lastTouchState = e.touches[0]; } }, { passive: true });
-            window.addEventListener('touchmove', function(e) {
-                if (!lastTouchState || e.touches.length > 1) return;
-                const touch = e.touches[0];
-                cameraYaw -= (touch.pageX - lastTouchState.pageX) * 0.0065; cameraPitch -= (touch.pageY - lastTouchState.pageY) * 0.0065;
-                cameraPitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, cameraPitch)); lastTouchState = touch;
-            }, { passive: true });
-            window.addEventListener('touchend', function() { lastTouchState = null; });
-
-            // Привязка мобильных кнопок управления
-            function registerMobileControl(elementId, startCallback, endCallback) {
-                const el = document.getElementById(elementId); if (!el) return;
-                el.addEventListener('touchstart', function(e) { e.preventDefault(); startCallback(); });
-                el.addEventListener('touchend', function(e) { e.preventDefault(); endCallback(); });
-            }
-            registerMobileControl('btn-w', () => moveW = true, () => moveW = false); registerMobileControl('btn-s', () => moveS = true, () => moveS = false);
-            registerMobileControl('btn-a', () => moveA = true, () => moveA = false); registerMobileControl('btn-d', () => moveD = true, () => moveD = false);
-            registerMobileControl('btn-jump', () => { if (jumpPossible) { playerVelocity.y = 0.115; jumpPossible = false; } }, () => {});
-            registerMobileControl('btn-break', () => triggerAction('break'), () => {}); registerMobileControl('btn-place', () => triggerAction('place'), () => {});
-
-            // --- ИГРОВОЙ ЦИКЛ (АНИМАЦИЯ И ФИЗИКА) ---
-            function updateGameLoop() {
-                requestAnimationFrame(updateGameLoop);
-                const rotX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), cameraPitch);
-                const rotY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), cameraYaw);
-                camera.quaternion.copy(rotY).multiply(rotX);
-                cameraRig.position.copy(camera.position); cameraRig.quaternion.copy(camera.quaternion);
-
-                // --- Динамическая Анимация удара для FPS ---
-                if (swingActive) {
-                    swingProgress += 0.24;
-                    armMesh.position.z = -0.42 + Math.sin(swingProgress) * 0.08;
-                    armMesh.rotation.x = 0.1 + Math.sin(swingProgress) * 0.45;
-                    toolHolder.position.z = (DATA_ITEMS[activeSlot].modelKey === 'sword' ? -0.48 : -0.46) + Math.sin(swingProgress) * 0.1;
-                    if (swingProgress >= Math.PI) {
-                        swingActive = false;
-                        armMesh.position.set(0.28, -0.28, -0.42); armMesh.rotation.set(0.1, -0.1, 0);
-                        redrawItemInHand(); // Сброс позиции предмета
-                    }
-                }
-
-                // Симуляция физики
-                playerVelocity.y -= pGravity; camera.position.y += playerVelocity.y;
-                if (camera.position.y < 2.5) { playerVelocity.y = 0; camera.position.y = 2.5; jumpPossible = true; }
-
-                // Расчет движения
-                let dirZ = Number(moveW) - Number(moveS); let dirX = Number(moveD) - Number(moveA);
-                let combinedMove = new THREE.Vector3(dirX, 0, -dirZ).normalize();
-                combinedMove.applyMatrix4(new THREE.Matrix4().makeRotationY(cameraYaw)); camera.position.addScaledVector(combinedMove, pSpeed);
-
-                renderer.render(scene, camera);
-            }
-            updateGameLoop();
-
-            window.addEventListener('resize', function() {
-                camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight);
-            });
+            // Следим за поворотом экрана смартфона
+            window.addEventListener('resize', onWindowResize, false);
+            
+            // Запускаем бесконечный игровой цикл обновления кадров
+            animate();
         }
+
+        // --- 2. ФУНКЦИЯ СБОРКИ ОБЪЁМНЫХ 3D-ИНСТРУМЕНТОВ ---
+        function createVoxelTool(type) {
+            const toolGroup = new THREE.Group();
+            
+            // Материалы для кубиков оружия[span_11](start_span)[span_11](end_span)
+            const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.9 }); // Рукоять[span_12](start_span)[span_12](end_span)
+            const ironMat = new THREE.MeshStandardMaterial({ color: 0xdcdcdc, roughness: 0.4, metalness: 0.3 }); // Железо[span_13](start_span)[span_13](end_span)
+            const diamondMat = new THREE.MeshStandardMaterial({ 
+                color: 0x00ffff, 
+                roughness: 0.1, 
+                metalness: 0.6,
+                emissive: 0x001a24 // Красивый внутренний отсвет алмаза[span_14](start_span)[span_14](end_span)
+            });
+
+            if (type === 'diamond_sword') {
+                // =========================================================
+                // НАСТОЯЩИЙ ОБЪЁМНЫЙ АЛМАЗНЫЙ МЕЧ
+                // =========================================================
+                
+                // 1. Рукоятка (Деревянный брус с объемом)[span_15](start_span)[span_15](end_span)
+                const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.4, 0.06), woodMat);
+                handle.position.y = 0.2; // Точка привязки (pivot) в самом низу[span_16](start_span)[span_16](end_span)
+                toolGroup.add(handle);
+
+                // 2. Гарда / Крестовина (Толстый защитный блок)[span_17](start_span)[span_17](end_span)
+                const guard = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.08, 0.12), diamondMat);
+                guard.position.y = 0.4;
+                toolGroup.add(guard);
+
+                // 3. Лезвие (Широкая, толстая алмазная плита — не палка!)[span_18](start_span)[span_18](end_span)
+                const blade = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.1, 0.06), diamondMat);
+                blade.position.y = 0.9;
+                toolGroup.add(blade);
+                
+                // 4. Острие меча (Ромб на самом верху)[span_19](start_span)[span_19](end_span)
+                const tip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.06), diamondMat);
+                tip.position.y = 1.45;
+                tip.rotation.z = Math.PI / 4; // Поворачиваем кубик под углом 45°[span_20](start_span)[span_20](end_span)
+                toolGroup.add(tip);
+
+            } else if (type === 'pickaxe') {
+                // =========================================================
+                // ОБЪЁМНАЯ КИРКА (Если захочешь переключить)
+                // =========================================================
+                const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.3, 0.06), woodMat);
+                shaft.position.y = 0.65;
+                toolGroup.add(shaft);
+
+                const pickHead = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.1, 0.1), ironMat);
+                pickHead.position.y = 1.25;
+                toolGroup.add(pickHead);
+
+                const tipL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.1), ironMat);
+                tipL.position.set(-0.4, 1.21, 0);
+                toolGroup.add(tipL);
+
+                const tipR = tipL.clone();
+                tipR.position.x = 0.4;
+                toolGroup.add(tipR);
+            }
+
+            // ЖЕСТКИЙ СБРОС ВРАЩЕНИЯ: Выпрямляем объект строго по вертикали[span_21](start_span)[span_21](end_span)!
+            toolGroup.rotation.set(0, 0, 0); 
+            return toolGroup;
+        }
+
+        // --- 3. СОЗДАНИЕ КАРТЫ ИЗ БЛОКОВ (КАК В MINECRAFT) ---
+        function createWorld() {
+            const blockGeo = new THREE.BoxGeometry(1, 1, 1);
+            const grassMat = new THREE.MeshStandardMaterial({ color: 0x559933, roughness: 0.8 });
+
+            // Строим зелёную платформу под ногами размером 12х12 кубиков
+            for (let x = -6; x < 6; x++) {
+                for (let z = -6; z < 6; z++) {
+                    const block = new THREE.Mesh(blockGeo, grassMat);
+                    block.position.set(x, 0, z);
+                    block.receiveShadow = true;
+                    scene.add(block);
+                    terrainBlocks.push(block); // Сохраняем блоки в массив
+                }
+            }
+        }
+
+        // --- 4. МЕСТО ДЛЯ ПОДКЛЮЧЕНИЯ СЕТЕВОГО ОНЛАЙНА ---
+        function sendMyCoordinatesToNetwork() {
+            // Когда мы подключим Firebase или Socket.io, этот код будет брать 
+            // координаты твоей камеры и мгновенно отсылать их друзьям:
+            /*
+            database.ref('players/' + myID).set({
+                x: camera.position.x,
+                y: camera.position.y,
+                z: camera.position.z
+            });
+            */
+        }
+
+        // --- 5. ИГРОВОЙ ЦИКЛ ОБНОВЛЕНИЯ АНИМАЦИИ ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Эффект "живого" дыхания: меч плавно покачивается вверх-вниз в руке
+            const animationTime = Date.now() * 0.0025;
+            if (currentWeaponMesh) {
+                currentWeaponMesh.position.y = -0.45 + Math.sin(animationTime) * 0.012;
+                currentWeaponMesh.position.x = 0.35 + Math.cos(animationTime) * 0.005;
+            }
+
+            // Постоянно отправляем наши координаты в сеть (заготовка для онлайна)
+            sendMyCoordinatesToNetwork();
+
+            // Отрисовываем сцену через камеру
+            renderer.render(scene, camera);
+        }
+
+        // Корректное отображение при повороте экрана телефона
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Запуск игры сразу после загрузки страницы в браузере телефона
+        window.onload = init;
     </script>
 </body>
 </html>
