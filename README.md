@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Minecraft Mobile 3D</title>
+    <title>Minecraft Mobile 3D - Real Sword</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: #7ec0ee; position: fixed; font-family: monospace; }
@@ -27,7 +27,7 @@
 <body>
 
     <div id="ui">
-        <div id="info">Инициализация генератора...</div>
+        <div id="info">Генерация мира...</div>
     </div>
     
     <div id="crosshair"></div>
@@ -54,114 +54,96 @@
     </div>
 
     <script>
-        // Проверка загрузки библиотеки, чтобы избежать зависания намертво
-        window.onerror = function(msg, url, line) {
-            document.getElementById('info').innerText = "Ошибка: " + msg + " (Строка: " + line + ")";
-            return false;
-        };
-
-        // Цветовая палитра вокселей (0 - пустота)
-        const W = 0x5c4033; // Дерево (коричневый)
-        const S = 0xaaaaaa; // Сталь (серый)
-        const D = 0x4dedf0; // Алмаз (голубой)
+        // Цветовая палитра для инструментов (0 - пустота)
+        const W1 = 0x5c4033; // Тёмное дерево
+        const W2 = 0x8b5a2b; // Светлое дерево
+        const S1 = 0x333333; // Чёрная обводка алмаза
+        const S2 = 0x247a7c; // Тёмно-бирюзовый (контур)
+        const D1 = 0x4dedf0; // Яркий алмаз
+        const D2 = 0xb2ffff; // Блик на алмазе (бело-голубой)
 
         const MODELS = {
-            pickaxe: [
-                [0,0,D,D,D,D,0],
-                [0,D,D,S,S,D,D],
-                [0,D,S,0,0,S,D],
-                [0,0,0,0,W,0,0],
-                [0,0,0,W,0,0,0],
-                [0,0,W,0,0,0,0],
-                [0,W,0,0,0,0,0],
-                [W,0,0,0,0,0,0]
-            ],
+            // ТОЧНАЯ СЕТКА АЛМАЗНОГО МЕЧА ИЗ MINECRAFT 16x16
             sword: [
-                [0,0,0,0,D],
-                [0,0,0,D,D],
-                [0,0,D,D,0],
-                [0,D,D,0,0],
-                [D,D,0,0,0],
-                [0,S,0,0,0],
-                [0,0,W,0,0]
+                [0,0,0,0,0,0,0,0,0,0,0,0,0,D2,S1,0],
+                [0,0,0,0,0,0,0,0,0,0,0,0,D2,D1,S1,0],
+                [0,0,0,0,0,0,0,0,0,0,0,D2,D1,S2,0,0],
+                [0,0,0,0,0,0,0,0,0,0,D2,D1,S2,0,0,0],
+                [0,0,0,0,0,0,0,0,0,D2,D1,S2,0,0,0,0],
+                [0,0,0,0,0,0,0,0,D2,D1,S2,0,0,0,0,0],
+                [0,0,0,0,0,0,0,D2,D1,S2,0,0,0,0,0,0],
+                [0,0,0,0,0,0,D2,D1,S2,0,0,0,0,0,0,0],
+                [0,0,0,0,0,D2,D1,S2,0,0,0,0,0,0,0,0],
+                [0,0,0,0,D2,D1,S2,0,0,0,0,0,0,0,0,0],
+                [0,0,0,S1,S2,S2,0,0,0,0,0,0,0,0,0,0],
+                [0,0,S1,W2,S1,0,0,0,0,0,0,0,0,0,0,0],
+                [0,S1,W2,S1,0,0,0,0,0,0,0,0,0,0,0,0],
+                [S1,W2,S1,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                [S1,S1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+            ],
+            pickaxe: [
+                [0,S1,S1,S1,S1,0,0],
+                [S1,D1,D1,S2,S2,S1,0],
+                [S1,D1,S1,0,0,S2,S1],
+                [0,0,0,0,W1,0,0],
+                [0,0,0,W1,0,0,0],
+                [0,0,W1,0,0,0,0],
+                [W1,0,0,0,0,0,0]
             ],
             shovel: [
-                [0,0,D,D],
-                [0,D,D,D],
-                [0,0,W,0],
-                [0,W,0,0],
-                [W,0,0,0]
+                [0,S1,S1,0],
+                [S1,D1,D1,S1],
+                [S1,D1,D1,S1],
+                [0,S1,W1,0],
+                [0,W1,0,0],
+                [W1,0,0,0]
             ],
             hoe: [
-                [0,D,D,D],
-                [0,D,S,S],
-                [0,0,W,0],
-                [0,W,0,0],
-                [W,0,0,0]
+                [S1,S1,S1,S1,0],
+                [S1,D1,D1,S2,S1],
+                [0,0,0,W1,0],
+                [0,0,W1,0,0],
+                [0,W1,0,0,0]
             ]
         };
 
-        // Генерация процедурных текстур
         function createMinecraftTexture(type) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 16;
-            canvas.height = 16;
+            const canvas = document.createElement('canvas'); canvas.width = 16; canvas.height = 16;
             const ctx = canvas.getContext('2d');
-
             for (let x = 0; x < 16; x++) {
                 for (let y = 0; y < 16; y++) {
                     let r, g, b, noise = Math.random() * 16 - 8;
                     if (type === 'dirt') {
                         r = 85 + noise; g = 55 + noise; b = 25 + noise;
                         if (y < 3 && Math.random() > 0.2) { r = 50 + noise; g = 120 + noise; b = 35 + noise; }
-                    } else if (type === 'sand') {
-                        r = 215 + noise; g = 195 + noise; b = 135 + noise;
-                    } else if (type === 'stone') {
-                        r = 120 + noise; g = 120 + noise; b = 120 + noise;
-                    } else if (type === 'skin') {
+                    } else if (type === 'sand') { r = 215 + noise; g = 195 + noise; b = 135 + noise; }
+                    else if (type === 'stone') { r = 120 + noise; g = 120 + noise; b = 120 + noise; }
+                    else if (type === 'skin') {
                         r = 210 + noise; g = 140 + noise; b = 105 + noise;
-                        if (y < 4) { r = 35; g = 145; b = 145; } // Майка Стива
+                        if (y < 4) { r = 35; g = 145; b = 145; }
                     }
-                    ctx.fillStyle = "rgb(" + Math.floor(r) + "," + Math.floor(g) + "," + Math.floor(b) + ")";
-                    ctx.fillRect(x, y, 1, 1);
+                    ctx.fillStyle = "rgb(" + Math.floor(r) + "," + Math.floor(g) + "," + Math.floor(b) + ")"; ctx.fillRect(x, y, 1, 1);
                 }
             }
             const texture = new THREE.CanvasTexture(canvas);
-            texture.magFilter = THREE.NearestFilter;
-            texture.minFilter = THREE.NearestFilter;
+            texture.magFilter = THREE.NearestFilter; texture.minFilter = THREE.NearestFilter;
             return texture;
         }
 
-        // Запуск основного движка после полной загрузки страницы
-        window.onload = function() {
-            if (typeof THREE === 'undefined') {
-                document.getElementById('info').innerText = "Критическая ошибка: движок Three.js не загружен!";
-                return;
-            }
-            startWorld();
-        };
+        window.onload = function() { startWorld(); };
 
         function startWorld() {
-            // Сцена и рендер
-            const scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x7ec0ee);
-            scene.fog = new THREE.FogExp2(0x7ec0ee, 0.05);
-
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 500);
+            const scene = new THREE.Scene(); scene.background = new THREE.Color(0x7ec0ee); scene.fog = new THREE.FogExp2(0x7ec0ee, 0.05);
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.05, 500);
             const renderer = new THREE.WebGLRenderer({ antialias: false });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             document.body.appendChild(renderer.domElement);
 
-            // Свет
             const lightA = new THREE.AmbientLight(0xffffff, 0.85); scene.add(lightA);
             const lightD = new THREE.DirectionalLight(0xffffff, 0.35); lightD.position.set(10, 25, 10); scene.add(lightD);
 
-            // Текстуры
-            const texDirt = createMinecraftTexture('dirt');
-            const texSand = createMinecraftTexture('sand');
-            const texStone = createMinecraftTexture('stone');
-            const texSkin = createMinecraftTexture('skin');
+            const texDirt = createMinecraftTexture('dirt'), texSand = createMinecraftTexture('sand'), texStone = createMinecraftTexture('stone'), texSkin = createMinecraftTexture('skin');
 
             const DATA_ITEMS = {
                 1: { name: 'Земля', texture: texDirt, isBlock: true },
@@ -173,32 +155,23 @@
                 7: { name: 'Мотыга', modelKey: 'hoe', isBlock: false }
             };
 
-            let activeSlot = 1;
-            const blocksArray = [];
-            const blockGeometry = new THREE.BoxGeometry(1, 1, 1);
-
+            let activeSlot = 1; const blocksArray = []; const blockGeometry = new THREE.BoxGeometry(1, 1, 1);
             let moveW = false, moveS = false, moveA = false, moveD = false, jumpPossible = false;
-            let playerVelocity = new THREE.Vector3();
-            const pSpeed = 0.075, pGravity = 0.0075;
-            camera.position.set(4, 3, 4);
-            let cameraPitch = 0, cameraYaw = 0;
+            let playerVelocity = new THREE.Vector3(); const pSpeed = 0.075, pGravity = 0.0075;
+            camera.position.set(4, 3, 4); let cameraPitch = 0, cameraYaw = 0;
 
-            // --- РУКА И КОНТЕЙНЕР ДЛЯ 3D ИНСТРУМЕНТОВ ---
             const cameraRig = new THREE.Group();
-            
-            const armGeo = new THREE.BoxGeometry(0.16, 0.16, 0.55);
+            const armGeo = new THREE.BoxGeometry(0.14, 0.14, 0.55);
             const armMat = new THREE.MeshLambertMaterial({ map: texSkin });
             const armMesh = new THREE.Mesh(armGeo, armMat);
-            armMesh.position.set(0.28, -0.28, -0.42);
-            armMesh.rotation.set(0.1, -0.1, 0);
+            armMesh.position.set(0.28, -0.28, -0.42); armMesh.rotation.set(0.1, -0.1, 0);
             cameraRig.add(armMesh);
 
             const toolHolder = new THREE.Group();
-            toolHolder.position.set(0.22, -0.16, -0.46);
-            cameraRig.add(toolHolder);
-            scene.add(cameraRig);
+            toolHolder.position.set(0.25, -0.16, -0.44); // Позиция крепления к руке
+            cameraRig.add(toolHolder); scene.add(cameraRig);
 
-            const singleVoxelGeo = new THREE.BoxGeometry(0.025, 0.025, 0.025);
+            const singleVoxelGeo = new THREE.BoxGeometry(0.022, 0.022, 0.022); // Размер кубика модели инструмента
 
             function redrawItemInHand() {
                 while(toolHolder.children.length > 0) { toolHolder.remove(toolHolder.children[0]); }
@@ -209,36 +182,48 @@
                     const previewMat = new THREE.MeshLambertMaterial({ map: current.texture });
                     const previewMesh = new THREE.Mesh(previewGeo, previewMat);
                     toolHolder.add(previewMesh);
+                    toolHolder.position.set(0.22, -0.16, -0.46);
                     toolHolder.rotation.set(0.2, Math.PI / 4, 0);
                 } else {
                     const matrix = MODELS[current.modelKey];
                     if (!matrix) return;
-                    for (let y = 0; y < matrix.length; y++) {
+                    
+                    const rows = matrix.length;
+                    for (let y = 0; y < rows; y++) {
                         for (let x = 0; x < matrix[y].length; x++) {
                             const color = matrix[y][x];
                             if (color !== 0) {
                                 const vMat = new THREE.MeshLambertMaterial({ color: color });
                                 const vMesh = new THREE.Mesh(singleVoxelGeo, vMat);
-                                vMesh.position.set((x - matrix[y].length / 2) * 0.025, (matrix.length / 2 - y) * 0.025, 0);
+                                // Строим 3D воксель
+                                vMesh.position.set(
+                                    (x - matrix[y].length / 2) * 0.022,
+                                    (rows / 2 - y) * 0.022,
+                                    0
+                                );
                                 toolHolder.add(vMesh);
                             }
                         }
                     }
-                    toolHolder.rotation.set(0, 0, -Math.PI / 4);
+                    
+                    if (current.modelKey === 'sword') {
+                        // Специфический красивый боевой наклон для длинного меча
+                        toolHolder.position.set(0.20, -0.05, -0.48);
+                        toolHolder.rotation.set(0.3, 0.4, -Math.PI / 3.5);
+                    } else {
+                        // Для кирки/лопаты/мотыги
+                        toolHolder.position.set(0.25, -0.14, -0.44);
+                        toolHolder.rotation.set(0, 0, -Math.PI / 4);
+                    }
                 }
             }
 
-            // Создание блоков в мире
             function buildWorldBlock(x, y, z, id) {
                 const mat = new THREE.MeshLambertMaterial({ map: DATA_ITEMS[id].texture });
-                const mesh = new THREE.Mesh(blockGeometry, mat);
-                mesh.position.set(x, y, z);
-                mesh.blockId = id;
-                scene.add(mesh);
-                blocksArray.push(mesh);
+                const mesh = new THREE.Mesh(blockGeometry, mat); mesh.position.set(x, y, z);
+                mesh.blockId = id; scene.add(mesh); blocksArray.push(mesh);
             }
 
-            // Маленький стабильный мир 8х8 блоков
             for (let x = 0; x < 8; x++) {
                 for (let z = 0; z < 8; z++) {
                     buildWorldBlock(x, 0, z, 3);
@@ -246,23 +231,17 @@
                 }
             }
 
-            // Действия игрока
             let swingActive = false, swingProgress = 0;
             function triggerAction(actionType) {
                 if (!swingActive) { swingActive = true; swingProgress = 0; }
-
                 const raycaster = new THREE.Raycaster();
                 raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
                 const hits = raycaster.intersectObjects(blocksArray);
-
                 if (hits.length > 0 && hits[0].distance < 4.2) {
                     const targeted = hits[0].object;
-                    if (actionType === 'break') {
-                        scene.remove(targeted);
-                        blocksArray.splice(blocksArray.indexOf(targeted), 1);
-                    } else if (actionType === 'place' && DATA_ITEMS[activeSlot].isBlock) {
-                        const sideNormal = hits[0].face.normal;
-                        const spawnPos = targeted.position.clone().add(sideNormal);
+                    if (actionType === 'break') { scene.remove(targeted); blocksArray.splice(blocksArray.indexOf(targeted), 1); } 
+                    else if (actionType === 'place' && DATA_ITEMS[activeSlot].isBlock) {
+                        const sideNormal = hits[0].face.normal; const spawnPos = targeted.position.clone().add(sideNormal);
                         buildWorldBlock(spawnPos.x, spawnPos.y, spawnPos.z, activeSlot);
                     }
                 }
@@ -276,94 +255,65 @@
             };
             selectSlot(1);
 
-            // Тач-управление обзором камеры
             let lastTouchState;
-            window.addEventListener('touchstart', function(e) {
-                if (e.target.tagName === 'CANVAS' || e.target.id === 'crosshair') { lastTouchState = e.touches[0]; }
-            }, { passive: true });
-
+            window.addEventListener('touchstart', function(e) { if (e.target.tagName === 'CANVAS' || e.target.id === 'crosshair') { lastTouchState = e.touches[0]; } }, { passive: true });
             window.addEventListener('touchmove', function(e) {
                 if (!lastTouchState || e.touches.length > 1) return;
                 const touch = e.touches[0];
-                cameraYaw -= (touch.pageX - lastTouchState.pageX) * 0.0065;
-                cameraPitch -= (touch.pageY - lastTouchState.pageY) * 0.0065;
-                cameraPitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, cameraPitch));
-                lastTouchState = touch;
+                cameraYaw -= (touch.pageX - lastTouchState.pageX) * 0.0065; cameraPitch -= (touch.pageY - lastTouchState.pageY) * 0.0065;
+                cameraPitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, cameraPitch)); lastTouchState = touch;
             }, { passive: true });
-
             window.addEventListener('touchend', function() { lastTouchState = null; });
 
-            // Привязка мобильных кнопок управления
             function registerMobileControl(elementId, startCallback, endCallback) {
-                const el = document.getElementById(elementId);
-                if (!el) return;
+                const el = document.getElementById(elementId); if (!el) return;
                 el.addEventListener('touchstart', function(e) { e.preventDefault(); startCallback(); });
                 el.addEventListener('touchend', function(e) { e.preventDefault(); endCallback(); });
             }
-
-            registerMobileControl('btn-w', () => moveW = true, () => moveW = false);
-            registerMobileControl('btn-s', () => moveS = true, () => moveS = false);
-            registerMobileControl('btn-a', () => moveA = true, () => moveA = false);
-            registerMobileControl('btn-d', () => moveD = true, () => moveD = false);
+            registerMobileControl('btn-w', () => moveW = true, () => moveW = false); registerMobileControl('btn-s', () => moveS = true, () => moveS = false);
+            registerMobileControl('btn-a', () => moveA = true, () => moveA = false); registerMobileControl('btn-d', () => moveD = true, () => moveD = false);
             registerMobileControl('btn-jump', () => { if (jumpPossible) { playerVelocity.y = 0.115; jumpPossible = false; } }, () => {});
-            registerMobileControl('btn-break', () => triggerAction('break'), () => {});
-            registerMobileControl('btn-place', () => triggerAction('place'), () => {});
+            registerMobileControl('btn-break', () => triggerAction('break'), () => {}); registerMobileControl('btn-place', () => triggerAction('place'), () => {});
 
-            // Рендер-цикл
             function updateGameLoop() {
                 requestAnimationFrame(updateGameLoop);
-
-                // Синхронизация камеры и рук
                 const rotX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), cameraPitch);
                 const rotY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), cameraYaw);
                 camera.quaternion.copy(rotY).multiply(rotX);
+                cameraRig.position.copy(camera.position); cameraRig.quaternion.copy(camera.quaternion);
 
-                cameraRig.position.copy(camera.position);
-                cameraRig.quaternion.copy(camera.quaternion);
-
-                // Анимация атаки/удара рукой Стива
+                // Динамическая 3D-анимация удара / взмаха мечом
                 if (swingActive) {
                     swingProgress += 0.24;
                     armMesh.position.z = -0.42 + Math.sin(swingProgress) * 0.08;
                     armMesh.rotation.x = 0.1 + Math.sin(swingProgress) * 0.45;
-                    toolHolder.position.z = -0.46 + Math.sin(swingProgress) * 0.1;
+                    toolHolder.position.z = (DATA_ITEMS[activeSlot].modelKey === 'sword' ? -0.48 : -0.46) + Math.sin(swingProgress) * 0.1;
                     if (swingProgress >= Math.PI) {
                         swingActive = false;
-                        armMesh.position.set(0.28, -0.28, -0.42);
-                        armMesh.rotation.set(0.1, -0.1, 0);
-                        toolHolder.position.set(0.22, -0.16, -0.46);
+                        armMesh.position.set(0.28, -0.28, -0.42); armMesh.rotation.set(0.1, -0.1, 0);
+                        redrawItemInHand(); // Сброс позиции предмета
                     }
                 }
 
-                // Симуляция физики и ходьбы
-                playerVelocity.y -= pGravity;
-                camera.position.y += playerVelocity.y;
+                playerVelocity.y -= pGravity; camera.position.y += playerVelocity.y;
+                if (camera.position.y < 2.5) { playerVelocity.y = 0; camera.position.y = 2.5; jumpPossible = true; }
 
-                if (camera.position.y < 2.5) {
-                    playerVelocity.y = 0;
-                    camera.position.y = 2.5;
-                    jumpPossible = true;
-                }
-
-                let dirZ = Number(moveW) - Number(moveS);
-                let dirX = Number(moveD) - Number(moveA);
+                let dirZ = Number(moveW) - Number(moveS); let dirX = Number(moveD) - Number(moveA);
                 let combinedMove = new THREE.Vector3(dirX, 0, -dirZ).normalize();
-                combinedMove.applyMatrix4(new THREE.Matrix4().makeRotationY(cameraYaw));
-                camera.position.addScaledVector(combinedMove, pSpeed);
+                combinedMove.applyMatrix4(new THREE.Matrix4().makeRotationY(cameraYaw)); camera.position.addScaledVector(combinedMove, pSpeed);
 
                 renderer.render(scene, camera);
             }
             updateGameLoop();
 
             window.addEventListener('resize', function() {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
+                camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight);
             });
         }
     </script>
 </body>
 </html>
+
 
 
 
